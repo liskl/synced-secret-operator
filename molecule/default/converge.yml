@@ -1,0 +1,57 @@
+---
+- name: Converge
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  collections:
+    - kubernetes.core
+  vars:
+    authorative_namespace: authorative-namespace
+    namespaces:
+      - "{{ authorative_namespace }}"
+      - dev
+      - prd
+      - cust-a
+      - cust-b
+      - cust-c
+  tasks:
+    - name: Create Namespace
+      k8s:
+        api_version: v1
+        kind: Namespace
+        name: '{{ namespace }}'
+
+    - import_tasks: kustomize.yml
+      vars:
+        state: present
+
+    - name: Create a k8s namespace
+      kubernetes.core.k8s:
+        name: "{{ item }}"
+        api_version: v1
+        kind: Namespace
+        state: present
+      loop: "{{ namespaces }}"
+    
+    - name: Create secret in "{{ authorative_namespace }}"
+      shell: >
+        kubectl create secret docker-registry docker --docker-username mydockerlogin --docker-password mydockerpass -n "{{ authorative_namespace }}"
+      ignore_errors: yes
+
+    - name: Create secret in "{{ authorative_namespace }}"
+      shell: >
+        kubectl create secret generic hello --from-literal hello=world -n "{{ authorative_namespace }}"
+      ignore_errors: yes
+    
+    - name: generate tls cert
+      shell: > 	
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout tls.key -out tls.crt -subj "/CN=ansible.dev"
+
+    - name: Create secret in "{{ authorative_namespace }}"
+      shell: >
+        kubectl create secret tls tls --key tls.key --cert tls.crt -n "{{ authorative_namespace }}"
+      ignore_errors: yes
+    
+  
+
+   

@@ -1,0 +1,6 @@
+---
+# defaults file for SyncedSecret
+source: ''
+targets: []
+no_log: true
+target_state: present
