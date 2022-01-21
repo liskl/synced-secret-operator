@@ -21,16 +21,15 @@ make docker-build docker-push IMG=mwillemsma/synced-secret-operator:0.0.2
 # Usage
 
 
-
 # Deploy the synced-secret-operator
 
 Deploy the operator to your cluster. 
 
-Check and verify [config/samples/deploy.yaml](config/samples/deploy.yaml) for a manifest which you can apply to your cluster.
+Check and verify [bundle/manifests](bundle/manifests) for a collection of manifests which you can apply to your cluster.
 
 
 ```sh
-kubectl apply -f config/samples/deploy.yaml
+kubectl apply -f bundle/manifests
 ```
 
 
@@ -91,3 +90,12 @@ OPERATOR_IMAGE=mwillemsma/synced-secrets-operator molecule verify
 If you want to see this operator in action, click the image and watch the demo below (youtube video)
 
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/gNGwf81R7Sg/0.jpg)](https://youtu.be/gNGwf81R7Sg)
+
+
+# Build a new bundled version of the operator (OLM) 
+
+Create a new version of the bundle.
+
+```sh
+operator-sdk generate bundle --input-dir config --version 0.0.2
+```
