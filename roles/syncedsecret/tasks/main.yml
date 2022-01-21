@@ -1,0 +1,83 @@
+---
+# tasks file for SyncedSecret
+- name: Lookup src secret 
+  k8s_info:
+    api: v1
+    kind: Secret
+    name: "{{ source.split('/')[1] }}"
+    namespace: "{{ source.split('/')[0] }}"
+  register: get_source
+  no_log: "{{ no_log | default(true) }}"
+  when: source | length > 0
+
+- name: Fetch a list of namespaces
+  set_fact:
+    namespaces: "{{ query('kubernetes.core.k8s', api_version='v1', kind='Namespace') }}"
+
+- name: Get namespaces list
+  set_fact:
+    namespaces_list: "{{ namespaces | map(attribute='metadata.name') | list }}"
+
+- name: Fail when src secret not found
+  fail:
+    msg: "source '{{ source }}' not found. Cannot continue."
+  when: >
+    source | length < 1 or
+    get_source.resources | length == 0
+
+- name: Fail when target namespace not found
+  fail:
+    msg: "target namespace '{{ item.split('/')[0] }}' not found. Cannot continue."
+  when: item.split('/')[0] not in namespaces_list
+  loop: "{{ targets }}"
+
+# docker-registry
+- set_fact:
+    source_data_orig: "{{ get_source.resources[0].data }}"
+    source_data_orig_type: 'kubernetes.io/dockerconfigjson'
+  when: 
+    - get_source
+    - get_source.resources | length > 0
+    - get_source.resources[0].type == 'kubernetes.io/dockerconfigjson'
+  no_log: "{{ no_log | default(true) }}"
+
+# Opaque
+- set_fact:
+    source_data_orig: "{{ get_source.resources[0].data }}"
+    source_data_orig_type: 'Opaque'
+  when: 
+    - get_source
+    - get_source.resources | length > 0
+    - get_source.resources[0].type == 'Opaque'
+  no_log: "{{ no_log | default(true) }}"
+  
+# TLS
+- set_fact:
+    source_data_orig: "{{ get_source.resources[0].data }}"
+    source_data_orig_type: 'kubernetes.io/tls'
+  when: 
+    - get_source
+    - get_source.resources | length > 0
+    - get_source.resources[0].type == 'kubernetes.io/tls'
+  no_log: "{{ no_log | default(true) }}"
+
+- name: Manage secrets in target namespaces
+  k8s:
+    state: "{{ target_state | default('present') }}"
+    merge_type: merge
+    definition:
+      apiVersion: v1
+      data: "{{ source_data_orig }}"
+      kind: Secret
+      metadata:
+        name: "{{ item.split('/')[1] }}"
+        namespace: "{{ item.split('/')[0] }}"
+      type: "{{ source_data_orig_type }}"
+      force: "{{ force_update | default('yes') }}"
+  when: >
+    source_data_orig_type == 'kubernetes.io/dockerconfigjson' or
+    source_data_orig_type == 'kubernetes.io/tls' or
+    source_data_orig_type == 'Opaque'
+  loop: "{{ targets }}"
+  no_log: "{{ no_log | default('true') }}"
+
